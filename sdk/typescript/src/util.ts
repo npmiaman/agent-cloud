@@ -93,3 +93,10 @@ export function guessContentType(path: string): string | undefined {
 }
 
 export const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+/** Strip trailing "/" characters in linear time (a /\/+$/ regex can backtrack quadratically). */
+export function trimTrailingSlashes(s: string): string {
+  let end = s.length;
+  while (end > 0 && s.charCodeAt(end - 1) === 47) end--;
+  return s.slice(0, end);
+}

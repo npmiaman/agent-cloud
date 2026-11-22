@@ -1,5 +1,6 @@
 import { Auth, type FetchLike, Http, type TokenState } from "./http.js";
 import type { Agent, Credential, Environment, Grant, Proposal, Provisioned, SearchHit, WorkspaceInfo } from "./types.js";
+import { trimTrailingSlashes } from "./util.js";
 import { Workspace } from "./workspace.js";
 
 export * from "./errors.js";
@@ -49,7 +50,7 @@ export class AgentCloud {
   readonly apiKeys: ApiKeys;
 
   constructor(opts: AgentCloudOptions = {}) {
-    this.baseUrl = (opts.baseUrl ?? env("AGENTCLOUD_URL") ?? "http://127.0.0.1:8787").replace(/\/+$/, "");
+    this.baseUrl = trimTrailingSlashes(opts.baseUrl ?? env("AGENTCLOUD_URL") ?? "http://127.0.0.1:8787");
     const f = opts.fetch ?? globalThis.fetch?.bind(globalThis);
     if (!f) throw new Error("global fetch is unavailable (Node 18+ required) — pass `fetch`");
     this.http = new Http(this.baseUrl, f, opts.maxRetries ?? 2, opts.timeoutMs ?? 60_000, `agentcloud-sdk-ts/${VERSION}`);

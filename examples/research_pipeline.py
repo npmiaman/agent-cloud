@@ -102,7 +102,7 @@ def main() -> None:
     except Exception as e:
         print(f"   token rejected: {type(e).__name__}")
 
-    print(f"\nDone. Open {a.base_url} and sign in as {a.email} / {a.password} to see it all in the dashboard.")
+    print(f"\nDone. Open {a.base_url} and sign in as {a.email} to see it all in the dashboard.")
 
 
 if __name__ == "__main__":

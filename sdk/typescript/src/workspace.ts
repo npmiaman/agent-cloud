@@ -4,7 +4,7 @@ import type {
   DownloadInfo, FileEntry, FileMeta, Grant, Pending, Proposal, SearchHit, Share, UploadSession, VersionInfo,
   WorkspaceInfo, WriteResult,
 } from "./types.js";
-import { type BinaryLike, basename, encodePath, guessContentType, readLocalFile, sha256Hex, sleep, toBytes, writeLocalFile } from "./util.js";
+import { type BinaryLike, basename, encodePath, guessContentType, readLocalFile, sha256Hex, sleep, toBytes, trimTrailingSlashes, writeLocalFile } from "./util.js";
 
 /** Convert a server write response into Written | Pending. */
 export function toWriteResult(d: Record<string, any>): WriteResult {
@@ -243,7 +243,7 @@ export class Files {
   async rename(path: string, newName: string, opts: { message?: string } = {}) {
     if (newName.includes("/")) throw new TypeError("newName must be a name, not a path; use move()");
     const isFolder = path.endsWith("/");
-    const trimmed = path.replace(/\/+$/, "");
+    const trimmed = trimTrailingSlashes(path);
     const parent = trimmed.includes("/") ? trimmed.slice(0, trimmed.lastIndexOf("/") + 1) : "";
     return this.move(path, parent + newName + (isFolder ? "/" : ""), opts);
   }

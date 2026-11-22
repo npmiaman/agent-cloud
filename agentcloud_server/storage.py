@@ -53,12 +53,12 @@ class LocalEncryptedBlobStore:
     def __init__(self, root: Path, key: bytes, replica: Path | None = None):
         """`replica`: an optional second directory (ideally another disk or a network mount)
         that receives a copy of every blob. Reads fall back to it and repair the primary."""
-        self.root = root
+        self.root = Path(os.path.realpath(root))
         self.root.mkdir(parents=True, exist_ok=True)
         self.tmp = root / ".tmp"
         self.tmp.mkdir(exist_ok=True)
         self.aead = AESGCM(key)
-        self.replica = Path(replica) if replica else None
+        self.replica = Path(os.path.realpath(replica)) if replica else None
         if self.replica:
             self.replica.mkdir(parents=True, exist_ok=True)
         self.healed = 0
@@ -70,12 +70,22 @@ class LocalEncryptedBlobStore:
             raise ValueError("bad namespace")
         if len(sha256) != 64 or any(c not in "0123456789abcdef" for c in sha256):
             raise ValueError("bad blob id")
-        return self.root / ns / sha256[:2] / sha256
+        return self._contained(self.root, os.path.join(self.root, ns, sha256[:2], sha256))
+
+    @staticmethod
+    def _contained(base: Path, candidate: str) -> Path:
+        """Defence in depth: the inputs are already validated above, but never let a
+        resolved path leave the store's root."""
+        resolved = os.path.realpath(candidate)
+        if not resolved.startswith(str(base) + os.sep):
+            raise ValueError("blob path escapes the store")
+        return Path(resolved)
 
     def _rpath(self, ns: str, sha256: str) -> Path | None:
         if not self.replica:
             return None
-        return self.replica / self._path(ns, sha256).relative_to(self.root)
+        self._path(ns, sha256)  # validates ns and sha256
+        return self._contained(self.replica, os.path.join(self.replica, ns, sha256[:2], sha256))
 
     def exists(self, ns: str, sha256: str) -> bool:
         return self._path(ns, sha256).exists() or bool(self.replica and self._rpath(ns, sha256).exists())

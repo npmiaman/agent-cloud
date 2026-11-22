@@ -66,7 +66,12 @@ def _install_fast_encoder() -> None:
         return slow(obj, *args, **kwargs)
 
     fr.jsonable_encoder = fast
-EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+def _valid_email(email: str) -> bool:
+    """local@domain.tld, at most 254 chars, no whitespace. Linear time: no regex backtracking."""
+    if len(email) > 254 or any(ch.isspace() for ch in email) or email.count("@") != 1:
+        return False
+    local, domain = email.split("@")
+    return bool(local) and "." in domain and not domain.startswith(".") and not domain.endswith(".")
 # Share-link tokens are their own namespace: authenticate() never accepts them, so a
 # leaked link can only ever download its one pinned file version.
 SHARE_LINK_PREFIX = "acl_"
@@ -485,7 +490,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.post("/v1/auth/signup", status_code=201, tags=["auth"])
     def signup(body: SignupIn):
         email = body.email.strip().lower()
-        if not EMAIL_RE.match(email):
+        if not _valid_email(email):
             raise ApiError(400, "INVALID_EMAIL", "invalid email")
         if len(body.password) < 8:
             raise ApiError(400, "WEAK_PASSWORD", "password must be at least 8 characters")
