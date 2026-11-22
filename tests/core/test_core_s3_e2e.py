@@ -1,6 +1,5 @@
 """The whole workflow on the S3 API (moto): no server, just conditional PUTs."""
 import os
-import threading
 
 import pytest
 
@@ -23,11 +22,8 @@ def test_agents_commit_merge_and_retract_on_s3():
             tx = repo.branch(f"agents/w{i}").begin(writer=f"agent:w{i}")
             tx.write(f"out/w{i}.md", f"derived {i}".encode(), inputs=[root])
             tx.commit("derive")
-        ts = [threading.Thread(target=worker, args=(i,)) for i in range(8)]
-        for t in ts:
-            t.start()
-        for t in ts:
-            t.join()
+        for i in range(8):           # sequential: moto's mocking isn't thread-safe (concurrency: MinIO tests)
+            worker(i)
         repo.merge_many([f"agents/w{i}" for i in range(8)] + ["agents/source"], "project")
         assert len(repo.branch("project").files()) == 9
         r = repo.retract(root, reason="bad export", by="human")
