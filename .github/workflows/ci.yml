@@ -40,23 +40,25 @@ jobs:
       - run: pytest -q
 
   s3-conformance:
-    name: s3 conformance (MinIO)
+    name: s3 conformance (LocalStack)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
-      - name: start MinIO
+      - name: start LocalStack (S3)
         run: |
-          docker run -d --name minio -p 9000:9000 -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
-            minio/minio:latest server /data
-          for i in $(seq 1 60); do curl -sf localhost:9000/minio/health/live && break; sleep 1; done
+          docker run -d --name localstack -p 4566:4566 -e SERVICES=s3 localstack/localstack:latest
+          for i in $(seq 1 90); do curl -sf localhost:4566/_localstack/health | grep -q '"s3": "\(available\|running\)"' && break; sleep 1; done
+          curl -s localhost:4566/_localstack/health
       - run: pip install -e ".[dev]"
       - name: core tests against a real S3-compatible server
         env:
-          AGENTCLOUD_TEST_S3_ENDPOINT: http://localhost:9000
-        run: pytest -q tests/core
+          AGENTCLOUD_TEST_S3_ENDPOINT: http://localhost:4566
+          AGENTCLOUD_TEST_S3_KEY: test
+          AGENTCLOUD_TEST_S3_SECRET: test
+        run: pytest -q tests/core -rs
 
   typescript-sdk:
     runs-on: ubuntu-latest

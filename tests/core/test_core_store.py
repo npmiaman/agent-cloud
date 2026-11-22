@@ -1,8 +1,8 @@
 """Object store conformance: every backend must give the same answers (SPEC §2, §10).
 
 Backends: memory, local directory, S3 through moto (in-process emulator), and a real
-S3-compatible server when AGENTCLOUD_TEST_S3_ENDPOINT is set (CI runs MinIO). Moto's request
-mocking isn't thread-safe, so concurrent tests run against MinIO instead of moto.
+S3-compatible server when AGENTCLOUD_TEST_S3_ENDPOINT is set (CI runs LocalStack). Moto's request
+mocking isn't thread-safe, so concurrent tests run against that server instead of moto.
 """
 import os
 import threading
@@ -33,8 +33,8 @@ def _minio():
 
     from agentcloud_core.store import S3Store
     s3 = boto3.client("s3", endpoint_url=endpoint, region_name="us-east-1",
-                      aws_access_key_id=os.environ.get("AGENTCLOUD_TEST_S3_KEY", "minioadmin"),
-                      aws_secret_access_key=os.environ.get("AGENTCLOUD_TEST_S3_SECRET", "minioadmin"),
+                      aws_access_key_id=os.environ.get("AGENTCLOUD_TEST_S3_KEY", "test"),
+                      aws_secret_access_key=os.environ.get("AGENTCLOUD_TEST_S3_SECRET", "test"),
                       config=Config(max_pool_connections=32))
     bucket = f"acf-{uuid.uuid4().hex[:12]}"
     s3.create_bucket(Bucket=bucket)
@@ -84,7 +84,7 @@ def test_list_and_delete(store):
 
 def test_exactly_one_writer_wins_each_cas_round(store):
     if getattr(store, "emulated", False):
-        pytest.skip("moto's mocking isn't thread-safe; the s3-server backend (MinIO in CI) covers this")
+        pytest.skip("moto's mocking isn't thread-safe; the s3-server backend (LocalStack in CI) covers this")
     store.put_if_absent("counter", b"0")
     wins = []
     lock = threading.Lock()
