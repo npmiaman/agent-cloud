@@ -2,7 +2,7 @@
 #   docker build -t agentcloud .
 #   docker run -p 8787:8787 -v agentcloud-data:/data agentcloud
 # The first start creates a local admin and prints a one-time console login link in the logs.
-FROM python:3.12-slim AS build
+FROM python:3.15-slim AS build
 WORKDIR /src
 COPY pyproject.toml README.md LICENSE ./
 COPY agentcloud_core ./agentcloud_core
@@ -10,7 +10,7 @@ COPY agentcloud_server ./agentcloud_server
 COPY sdk/python ./sdk/python
 RUN pip wheel --no-cache-dir --wheel-dir /wheels ".[fast]"
 
-FROM python:3.12-slim
+FROM python:3.15-slim
 LABEL org.opencontainers.image.title="Agent Cloud" \
       org.opencontainers.image.description="Self-hosted cloud workspaces for AI agents" \
       org.opencontainers.image.source="https://github.com/npmiaman/agent-cloud" \
