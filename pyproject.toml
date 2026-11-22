@@ -36,7 +36,8 @@ dependencies = [
 fast = ["uvloop>=0.19", "httptools>=0.6"]
 vector = ["numpy>=1.26"]                       # faster HNSW (pure-Python fallback without it)
 local-embeddings = ["numpy>=1.26", "sentence-transformers>=3"]   # optional: run an embedding model on this server
-dev = ["pytest>=8", "ruff>=0.6", "numpy>=1.26"]
+s3 = ["boto3>=1.34"]                                            # agentcloud_core.S3Store
+dev = ["pytest>=8", "ruff>=0.6", "numpy>=1.26", "boto3>=1.34", "moto[s3]>=5.1"]
 
 [project.urls]
 Homepage = "https://github.com/npmiaman/agent-cloud"
@@ -49,8 +50,8 @@ agentcloud = "agentcloud_server.cli:main"
 ac = "agentcloud.cli:entry"
 
 [tool.setuptools]
-packages = ["agentcloud_server", "agentcloud"]
-package-dir = { "agentcloud_server" = "agentcloud_server", "agentcloud" = "sdk/python/agentcloud" }
+packages = ["agentcloud_core", "agentcloud_server", "agentcloud"]
+package-dir = { "agentcloud_core" = "agentcloud_core", "agentcloud_server" = "agentcloud_server", "agentcloud" = "sdk/python/agentcloud" }
 
 [tool.setuptools.package-data]
 agentcloud_server = ["dashboard/*.html"]

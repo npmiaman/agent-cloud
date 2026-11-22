@@ -7,6 +7,21 @@ breaking changes; they are called out below.
 
 ## [Unreleased]
 
+### Added
+- **`SPEC.md`:** the Agent Cloud repository format v0.1 (draft). Object layout,
+  content-defined chunks, prolly trees, the compare-and-swap commit protocol, hierarchical
+  merges, lineage with an LSM-style reverse index, retraction, leases, encryption, GC.
+- **`agentcloud_core`:** the reference library, with no server and no database.
+  - Backends: `MemoryStore`, `LocalStore`, `S3Store` (conditional PUTs).
+  - Envelope encryption with keyed object ids; branches; shared-branch rebase and retry;
+    fan-in merges with diff3; downstream queries; retraction; leases.
+  - Conformance tests run against every backend, S3 through moto.
+- `examples/retraction_demo.py` (blast-radius demo) and `bench/agents_bench.py` (many-agent benchmark with S3 request costs).
+- Optional extra `s3` (boto3).
+
+### Changed
+- `cdc`, `diffalgo` and `merge3` moved into `agentcloud_core`; the server re-exports them.
+
 ## [0.9.0] - 2026-11-23
 
 Vector search, without shipping or downloading a model.

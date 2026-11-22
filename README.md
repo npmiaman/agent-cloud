@@ -19,6 +19,30 @@ Risky changes wait for a human, content from the open web is tracked and labelle
 
 ---
 
+## Two ways to use it
+
+| | For | What it is |
+|---|---|---|
+| **The format** ([`SPEC.md`](SPEC.md), `agentcloud_core`) | Agent platforms and labs running thousands to millions of agents | An open layout for agent work on S3, GCS, R2, MinIO or a local directory: content-defined chunks, prolly trees, commits with compare-and-swap on branch heads, and lineage with retraction. **No server in the write path.** |
+| **The reference server** (`agentcloud up`) | Teams running dozens of agents | Everything below: MCP, REST, console, approvals, search, webhooks, on one node. |
+
+```python
+from agentcloud_core import Repo, S3Store            # or LocalStore("/data/acf"), MemoryStore()
+
+repo = Repo.init(S3Store("my-bucket"), "projects/alpha", key=kek)     # envelope-encrypted
+tx = repo.branch("agents/researcher-17").begin(writer="agent:researcher-17")
+p = tx.write("reports/q3.md", data, inputs=[upstream], sources=["https://example.com"])
+tx.commit("draft")                                    # one conditional PUT on the branch head
+repo.merge_many(["agents/a", "agents/b"], "teams/research")           # hierarchical fan-in
+repo.retract(p, reason="fabricated source")           # flags everything downstream, every branch
+```
+
+`python examples/retraction_demo.py`: 90 agents write 3,060 files across their own branches,
+merged up through teams into a project. One retraction finds the 2,453 downstream versions
+in 6 ms, and a later write built on a flagged file is marked at write time.
+`python bench/agents_bench.py` runs the many-agent benchmark. The format is a **v0.1
+draft**; see the spec's open questions.
+
 ## Quickstart
 
 ```bash
