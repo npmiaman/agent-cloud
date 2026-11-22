@@ -3,10 +3,8 @@ import json
 import time
 
 import httpx
-import pytest
 
 from agentcloud_server import local, webhooks
-from agentcloud_server.service import flush_activity
 
 
 def _ctx(server):

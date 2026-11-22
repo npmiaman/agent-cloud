@@ -1,11 +1,33 @@
-name: ci
+name: CI
+
 on:
   push:
+    branches: [main]
   pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  python:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ruff
+      - run: ruff check .
+
+  test:
+    name: test (python ${{ matrix.python }})
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         python: ["3.11", "3.12", "3.13"]
     steps:
@@ -13,8 +35,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
+          cache: pip
       - run: pip install -e ".[dev]"
       - run: pytest -q
+
   typescript-sdk:
     runs-on: ubuntu-latest
     steps:
@@ -32,3 +56,31 @@ jobs:
           agentcloud up --data /tmp/ac --port 8799 --workers 1 &
           for i in $(seq 1 50); do curl -sf localhost:8799/healthz && break; sleep 0.2; done
           cd sdk/typescript && node test/e2e.mjs
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install build twine
+      - run: python -m build
+      - run: twine check dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t agentcloud:ci .
+      - name: smoke test
+        run: |
+          docker run -d --name ac -p 8787:8787 agentcloud:ci
+          for i in $(seq 1 60); do curl -sf localhost:8787/healthz && break; sleep 0.5; done
+          curl -sf localhost:8787/readyz
+          curl -sf localhost:8787/llms.txt | head -3
+          docker logs ac

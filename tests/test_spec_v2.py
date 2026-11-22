@@ -4,7 +4,7 @@ import time
 
 import pytest
 
-from agentcloud import AgentCloudError, Conflict, Forbidden, NotFound, Pending, Unauthenticated
+from agentcloud import AgentCloudError, Conflict, Forbidden, NotFound
 
 
 def agent_client(server, credential):

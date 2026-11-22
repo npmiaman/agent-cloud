@@ -9,14 +9,13 @@ from __future__ import annotations
 import json
 import os
 import re
-import threading
 import time
 from pathlib import Path
 from urllib.parse import quote
 
 from fastapi import Depends, FastAPI, Header, Query, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
+from fastapi.responses import JSONResponse, RedirectResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -27,7 +26,7 @@ from . import provenance as P
 from . import dataplane as D
 from . import mcp as mcp_mod
 from . import service as S
-from .auth import (ACCESS_TOKEN_PREFIX, ACTIONS, AGENT_TOKEN_PREFIX, APPROVAL_RANK, ROLES, USER_KEY_PREFIX,
+from .auth import (ACTIONS, AGENT_TOKEN_PREFIX, APPROVAL_RANK, ROLES, USER_KEY_PREFIX,
                    USER_SESSION_PREFIX, Principal, authenticate, hash_password, hash_token, mint_access_token,
                    mint_token, set_access_token_key, share_limits, user_orgs, verify_password)
 from .config import Settings

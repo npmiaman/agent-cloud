@@ -233,7 +233,7 @@ class _TextCache:
 
 TEXT_CACHE = _TextCache()
 
-def _chunk_index(text: str) -> list[tuple[int, int, "collections.Counter", int, str]]:
+def _chunk_index(text: str) -> list[tuple]:
     """Per-file search index, built once per immutable blob: 40-line chunks with term counts."""
     import collections
     lines = text.splitlines()
@@ -280,7 +280,6 @@ def search(ctx: Ctx, p: Principal, query: str, workspaces: list[dict], prefix: s
                 continue
             path_terms = set(_terms(e["path"]))
             chunks: list[tuple[int, int, list[str], str]] = []
-            text = None
             if is_texty(e["path"], e["content_type"]) and e["size"] <= SEARCH_MAX_FILE and scanned < SEARCH_MAX_TOTAL and e["sha256"]:
                 scanned += e["size"]
                 hit = TEXT_CACHE.get(ctx, ws["owner_id"], e["sha256"])

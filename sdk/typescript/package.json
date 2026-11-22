@@ -18,5 +18,7 @@
     "build": "npx -y -p typescript@5.6.3 tsc -p tsconfig.json",
     "test:e2e": "node test/e2e.mjs"
   },
-  "license": "MIT"
+  "license": "Apache-2.0",
+  "repository": { "type": "git", "url": "https://github.com/npmiaman/agent-cloud.git", "directory": "sdk/typescript" },
+  "homepage": "https://github.com/npmiaman/agent-cloud/tree/main/sdk/typescript"
 }

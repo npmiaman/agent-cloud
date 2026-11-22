@@ -105,7 +105,7 @@ def test_revoked_and_expired_credentials(server):
 def test_grant_expiry_and_revocation(setup):
     dev, ws, a, b, A, B = setup
     ws.write("f.txt", "hi")
-    g = ws.grant(a["id"], ttl_seconds=1)
+    ws.grant(a["id"], ttl_seconds=1)
     assert A.read_text("f.txt") == "hi"
     time.sleep(1.2)
     with pytest.raises(NotFound):

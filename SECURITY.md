@@ -1,9 +1,24 @@
 # Security
 
-## Reporting
+## Supported versions
 
-Please report vulnerabilities privately (GitHub security advisory on this repository)
-rather than in a public issue. Include a reproduction; we'll acknowledge within a few days.
+| Version | Supported |
+|---|---|
+| 0.5.x | Yes |
+| < 0.5 | No: upgrade (migrations run automatically on start) |
+
+## Reporting a vulnerability
+
+Please **do not open a public issue**. Report privately through
+[GitHub private vulnerability reporting](../../security/advisories/new) and include:
+
+- the affected version or commit
+- a minimal reproduction
+- the impact you expect
+
+We aim to acknowledge reports within 3 working days and to ship a fix or mitigation for
+confirmed high-severity issues within 30 days. We credit reporters in the release notes
+unless you ask us not to.
 
 ## Threat model (what Agent Cloud defends, and what it doesn't)
 
@@ -21,6 +36,15 @@ rather than in a public issue. Include a reproduction; we'll acknowledge within 
   - Share-link tokens can't authenticate API calls.
 - **Untrusted agent output in the console.** Files are served sandboxed, and the dashboard never renders agent data as HTML.
 - **Path tricks:** traversal, control characters and dot segments are rejected.
+- **Prompt injection spreading through shared files (v0.5).**
+  - Content derived from outside sources or untrusted files is labelled, and agents see it behind a warning banner.
+  - Protected paths can refuse untrusted writes or send them for approval.
+  - Provenance records are HMAC-signed, so tampering with the metadata database is detectable.
+  - This reduces the risk; it does not eliminate it. A model can still follow instructions it was told to treat as data.
+- **Runaway and over-delegated agents (v0.5).**
+  - Budgets, runaway detection and leases limit the damage one agent can do.
+  - Helper agents get a subset of their parent's access and expire.
+  - The kill switch revokes an agent's whole delegation subtree on the next request.
 
 **Does not defend (by design or not yet)**
 - **Someone with the host.** Blob encryption uses a key stored in the data directory by default. Set `AGENTCLOUD_MASTER_KEY` from a secret manager for real separation.

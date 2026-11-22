@@ -1,7 +1,6 @@
 """v0.5: stateless MCP (2026-07-28), provenance + trust labels, leases with fencing,
 atomic multi-file commits, delegation with budgets and a subtree kill switch, runaway
 detection, and the Claude memory-tool backend."""
-import time
 
 import pytest
 
@@ -80,7 +79,6 @@ def test_new_session_after_quiet_period_briefs_other_agents_changes(server, org)
     ma, mb = Modern(server, a["token"]["token"]), Modern(server, b["token"]["token"])
     ma.call("cloud_write", path="/plan.md", content="v1")
     # alpha goes quiet; beta edits alpha's file
-    db = server.app.state.ctx.db if hasattr(server.app.state, "ctx") else None
     mb.call("cloud_write", path="/plan.md", content="v2 by beta", workspace="alpha")
     import agentcloud_server.mcp as mm
     old = mm.SESSION_GAP
@@ -209,8 +207,6 @@ def test_lease_blocks_other_agents_and_fencing_catches_stale_holders(server, org
     _, t = mb.call("cloud_lease", action="list", workspace="alpha")
     assert "held by alpha" in t
     # alpha's lease expires; beta takes over; alpha's stale fence is refused
-    import agentcloud_server.coordination as C
-    db = None
     ma.call("cloud_lease", path="/reports/", action="release")
     res, _ = mb.call("cloud_lease", path="/reports/", workspace="alpha")
     assert res["structuredContent"]["fence"] > fence

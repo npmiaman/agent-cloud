@@ -28,7 +28,7 @@ import shutil
 import struct
 import tempfile
 from pathlib import Path
-from typing import BinaryIO, Iterator, Protocol
+from typing import Iterator, Protocol
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 

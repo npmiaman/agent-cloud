@@ -8,7 +8,20 @@ version = "0.5.0"
 description = "Self-hosted, open-source cloud workspaces for AI agents: identity, files, versions, permissions, approvals and audit, over MCP."
 readme = "README.md"
 license = { text = "Apache-2.0" }
-keywords = ["ai-agents", "mcp", "storage", "self-hosted", "llm"]
+keywords = ["ai-agents", "mcp", "model-context-protocol", "storage", "self-hosted", "llm", "agent-memory", "provenance"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Framework :: FastAPI",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: System :: Archiving :: Backup",
+]
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.110",
@@ -21,7 +34,13 @@ dependencies = [
 
 [project.optional-dependencies]
 fast = ["uvloop>=0.19", "httptools>=0.6"]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[project.urls]
+Homepage = "https://github.com/npmiaman/agent-cloud"
+Documentation = "https://github.com/npmiaman/agent-cloud/tree/main/docs"
+Issues = "https://github.com/npmiaman/agent-cloud/issues"
+Changelog = "https://github.com/npmiaman/agent-cloud/blob/main/CHANGELOG.md"
 
 [project.scripts]
 agentcloud = "agentcloud_server.cli:main"
@@ -36,3 +55,11 @@ agentcloud_server = ["dashboard/*.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 140
+target-version = "py311"
+extend-exclude = ["sdk/typescript"]
+
+[tool.ruff.lint]
+select = ["E9", "F"]

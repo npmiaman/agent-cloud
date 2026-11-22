@@ -1,0 +1,6 @@
+# Default reviewers for everything in the repository.
+*                                  @npmiaman
+# Security-sensitive: permission engine, credentials, crypto, trust.
+/agentcloud_server/auth.py         @npmiaman
+/agentcloud_server/storage.py      @npmiaman
+/agentcloud_server/provenance.py   @npmiaman

@@ -1,0 +1,15 @@
+# docker compose up -d   then   docker compose logs agentcloud   for the one-time login link
+services:
+  agentcloud:
+    build: .
+    image: agentcloud:latest
+    ports:
+      - "127.0.0.1:8787:8787"   # put TLS (Caddy, nginx) in front before exposing beyond localhost
+    volumes:
+      - agentcloud-data:/data
+    environment:
+      # Optional: daily verified backups inside the volume, keeping 7
+      AGENTCLOUD_BACKUP_DIR: /data/backups
+    restart: unless-stopped
+volumes:
+  agentcloud-data:

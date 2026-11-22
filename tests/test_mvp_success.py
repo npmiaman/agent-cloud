@@ -1,7 +1,7 @@
 """PRD §16, the MVP definition of success, as one runnable scenario."""
 import pytest
 
-from agentcloud import Forbidden, NotFound
+from agentcloud import NotFound
 
 
 def test_prd_section_16(server):

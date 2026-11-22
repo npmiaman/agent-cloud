@@ -4,7 +4,7 @@
 Seeds 20 agents, 1,000 files in one workspace (+10 more workspaces), then measures
 p50/p95 for the hot paths and mixed-read throughput with 8 concurrent clients.
 """
-import json, os, statistics, subprocess, sys, tempfile, threading, time
+import json, os, statistics, subprocess, sys, tempfile, time
 from pathlib import Path
 import httpx
 
