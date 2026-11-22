@@ -23,8 +23,8 @@ a new one.
 agentcloud agent create research --storage 1GB
 ```
 
-This creates the agent, its own workspace with a 1 GB quota, editor access and a
-credential (`aca_…`, shown once). It also prints ready-to-paste configs:
+This creates the agent, its own workspace with a 1 GB quota (which the agent **owns** and
+governs), and a credential (`aca_…`, shown once). It also prints ready-to-paste configs:
 
 ```bash
 # Claude Code
@@ -38,7 +38,8 @@ claude mcp add --transport http agent-cloud http://127.0.0.1:8787/mcp \
 ```
 
 Options:
-- `--access read_only|read_write|full`: `full` lets the agent share and delegate.
+- `--access owner|full|read_write|read_only`: `owner` (the default) lets the agent govern its
+  workspace within your [constitution](sovereign-workspaces.md); `read_write` makes it a plain editor.
 - `--approval none|overwrite|all`: route overwrites, or every change, through a human.
 
 ## 3. Use it

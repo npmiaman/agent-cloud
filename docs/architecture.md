@@ -28,7 +28,11 @@ agents (MCP · SDKs · ac · memory tool)        console · agentcloud CLI
 | `agent_env.py` | Environment discovery, change briefings, BM25 search |
 | `memory.py` | Claude memory-tool command execution |
 | `dataplane.py` | Upload sessions and signed URLs |
-| `storage.py` | Encrypted blob store; the seam for S3, R2 and GCS |
+| `storage.py` | Encrypted blob store with content-defined chunking; the seam for S3, R2 and GCS |
+| `governance.py` | The organisation constitution and owner-agent checks |
+| `vcs.py`, `merge3.py`, `diffalgo.py` | Commits, prolly-tree folders, diffs, rollback, branches, merges |
+| `search_index.py` | Persistent keyword index and exact top-k ranking |
+| `embeddings.py`, `hnsw.py`, `vector_index.py` | Embedders, HNSW, encrypted vectors, hybrid search |
 | `webhooks.py`, `worker.py` | Delivery with retries; maintenance |
 
 ## Algorithms

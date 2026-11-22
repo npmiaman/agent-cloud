@@ -34,6 +34,12 @@ body explaining why when it isn't obvious.
 | `agentcloud_server/provenance.py` | Signed provenance and trust labels. Security-sensitive. |
 | `agentcloud_server/coordination.py` | Leases, budgets, runaway detection, delegation and kill switch. |
 | `agentcloud_server/memory.py` | Claude memory-tool backend. |
+| `agentcloud_server/governance.py` | The organisation constitution and owner-agent checks. Security-sensitive. |
+| `agentcloud_server/vcs.py`, `merge3.py`, `diffalgo.py` | Commits (Merkle trees, prolly-tree folders), diffs, rollback, branches, histogram-diff three-way merges. |
+| `agentcloud_server/search_index.py` | Persistent keyword index (FTS5, keyed-hash terms), exact top-k ranking. |
+| `agentcloud_server/embeddings.py`, `hnsw.py`, `vector_index.py` | Pluggable embedders, the HNSW index, encrypted vector store, hybrid search. |
+| `agentcloud_server/cdc.py` | FastCDC chunking; used by the storage layer's background dedup. Chunk boundaries must never change. |
+| `sdk/python/agentcloud/replica.py` | Local replica for microsecond reads. |
 | `agentcloud_server/webhooks.py`, `worker.py` | Background delivery and maintenance. |
 | `agentcloud_server/cli.py` | The `agentcloud` command. |
 | `agentcloud_server/dashboard/index.html` | The console: one dependency-free file. All user data goes through `textContent`, never `innerHTML`. |
@@ -50,5 +56,6 @@ body explaining why when it isn't obvious.
 
 - Security issues: see `SECURITY.md`. Don't open public issues for them.
 - Be kind: the [Code of Conduct](CODE_OF_CONDUCT.md) applies everywhere.
-- No new runtime dependencies without discussion.
+- No new runtime dependencies without discussion. Heavy or optional libraries (numpy, model runtimes) go behind extras and are imported lazily.
+- Randomised property tests are part of the bar for algorithmic code (trees, merges, ranking): compare against a simple reference implementation.
 - Keep the agent interface small: a new MCP tool needs a strong reason.

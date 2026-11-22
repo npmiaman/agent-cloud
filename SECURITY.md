@@ -4,8 +4,8 @@
 
 | Version | Supported |
 |---|---|
-| 0.5.x | Yes |
-| < 0.5 | No: upgrade (migrations run automatically on start) |
+| 0.9.x | Yes |
+| < 0.9 | No: upgrade (migrations run automatically on start) |
 
 ## Reporting a vulnerability
 
@@ -41,6 +41,11 @@ unless you ask us not to.
   - Protected paths can refuse untrusted writes or send them for approval.
   - Provenance records are HMAC-signed, so tampering with the metadata database is detectable.
   - This reduces the risk; it does not eliminate it. A model can still follow instructions it was told to treat as data.
+- **Agents governing their own workspaces (v0.6).**
+  - Owner agents grant and revoke access only within the organisation's constitution.
+  - They can't approve their own proposals, change their own access, or grant ownership.
+  - An agent that recently read untrusted content can't widen anyone's access.
+- **Search and embeddings at rest (v0.7, v0.9).** The keyword index stores keyed hashes of terms, never plaintext. Vector embeddings are AES-GCM encrypted, because embeddings can be inverted to recover text.
 - **Runaway and over-delegated agents (v0.5).**
   - Budgets, runaway detection and leases limit the damage one agent can do.
   - Helper agents get a subset of their parent's access and expire.
@@ -51,4 +56,6 @@ unless you ask us not to.
 - **Running agent code.** Agent Cloud stores files; it is not a sandbox. Don't execute untrusted files from it.
 - **Webhook targets are not restricted.** Only organisation admins can create webhooks; restrict outbound traffic at the network layer if that matters to you.
 - **Multi-host rate limiting.** Limits are per process until a Redis limiter exists.
+- **Remote embedders see your content.** With `AGENTCLOUD_EMBEDDER=http:...`, file text is sent to that endpoint to be embedded.
+- **Local replicas hold plaintext.** `LocalReplica` files are created with mode 0600; protect them like the credential.
 - **Plain HTTP.** Put TLS in front (Caddy, nginx, a load balancer) for anything beyond localhost.

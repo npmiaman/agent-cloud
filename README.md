@@ -1,6 +1,6 @@
 <div align="center">
 
-# Agent Cloud
+<img src="docs/assets/banner.svg" alt="Agent Cloud: self-hosted cloud workspaces for AI agents" width="100%">
 
 **Self-hosted, open-source cloud workspaces for AI agents.**
 
@@ -33,7 +33,7 @@ The last command prints a credential and ready-to-paste configs:
 
 ```text
   research  agt_…
-  workspace wsp_…  (1024 MB, read_write, approval: none)
+  workspace wsp_…  (1024 MB, owner, approval: none)
   credential aca_…  (shown once)
 
   # Claude Code
@@ -43,9 +43,9 @@ The last command prints a credential and ready-to-paste configs:
   { "mcpServers": { "agent-cloud": { "url": "http://127.0.0.1:8787/mcp", "headers": { "Authorization": "Bearer aca_…" } } } }
 ```
 
-Your agent already knows who it is and what it can reach. It works with paths like
-`/research/notes.md`, and its files survive restarts, model swaps and moves between
-machines. Next: the [getting-started guide](docs/getting-started.md).
+Your agent already knows who it is and what it can reach. It owns its workspace, works with
+paths like `/research/notes.md`, and its files survive restarts, model swaps and moves
+between machines. Next: the [getting-started guide](docs/getting-started.md).
 
 ## Why
 
@@ -101,26 +101,32 @@ Every model turn and every output token costs time and money:
 
 ## Performance
 
-`python bench/bench.py` on a MacBook (8 cores): 20 agents, 1,000 files, real HTTP round
-trips to a separate server process.
+`python bench/bench.py` on a MacBook (8 cores, v0.9): 20 agents, 1,000 files, real HTTP
+round trips to a separate server process.
 
 | Operation | p50 |
 |---|---|
-| Read a file | 0.89 ms |
-| Write a 1 KB file (versioned, audited, signed provenance) | 1.6 ms |
-| MCP `cloud_read` | 0.59 ms |
-| List a 100-file folder | 1.8 ms |
-| Content search across 1,000 files | 14 ms |
-| **Mixed reads, 8 concurrent clients, 1 process** | **429 req/s** |
-| **Mixed reads, 8 concurrent clients, 4 processes** (`--workers 4`) | **2,969 req/s** (measured on v0.4) |
+| Read a file | 1.0 ms |
+| Write a 1 KB file (versioned, audited, signed provenance) | 1.7 ms |
+| MCP `cloud_read` | 0.70 ms |
+| List a 100-file folder | 2.0 ms |
+| Keyword search across 1,000 files | 4.8 ms |
+| **Mixed reads, 8 concurrent clients, 1 process** | **447 req/s** |
+| **Mixed reads, 8 concurrent clients, 4 processes** (`BENCH_WORKERS=4`) | **2,262 req/s** |
 
-What made the difference:
-- Credential "last used" times are written at most once a minute.
-- Read audit events are batched every 250 ms.
-- SQLite runs in WAL mode with memory-mapped reads, and each permission check is one query.
-- A fast JSON path: FastAPI's generic encoder took about a third of CPU.
-- Search caches a per-file chunk index.
-- Multi-process serving.
+At scale (20,000 files in one workspace, measured in-process):
+
+| Operation | Result |
+|---|---|
+| Keyword search, rare term | 0.12 ms (persistent encrypted-term index) |
+| Keyword search, term in every file | 45 ms, exact top-k after scanning 20 of 20,000 rows |
+| Vector search (HNSW, 384-dim) | 0.65 ms, recall@10 = 1.000 |
+| Commit after one change in a 20,000-file folder | 11 ms, 4 new tree nodes (21 KB) |
+| Diff between commits | 0.2–0.5 ms |
+| Local replica read / search | 3.6 µs / 43 µs |
+| 100 appends to a 2.2 MB log, after dedup | 2.07 MB stored (vs 220 MB) |
+
+Benchmarks on a laptop are noisy; run them on your own hardware before relying on them.
 
 ## Commands
 
@@ -157,13 +163,16 @@ today's agent infrastructure:
 
 - [x] Agent-owned workspaces, agent review, branches and merges (v0.6)
 - [x] Persistent search index, folder overviews, tree-structured commits, line-level merges, local replica (v0.7)
+- [x] Content-defined chunking, prolly trees, exact top-k ranking (v0.8)
+- [x] Vector and hybrid search with pluggable embedders (v0.9)
+- [ ] Persisted HNSW graphs and a native chunker (the remaining CPU-bound hot paths)
 - [ ] File-change wake-ups and the MCP Tasks extension
 - [ ] `subscriptions/listen` push notifications
 - [ ] Postgres metadata and S3/R2/GCS blob backends (multi-host)
 - [ ] OAuth for MCP
 - [ ] Erasure by deleting per-subject encryption keys, with an erasure ledger that survives restores
 - [ ] OpenTelemetry export
-- [ ] v0.5 features in the TypeScript SDK
+- [ ] TypeScript SDK coverage for v0.5+ features (the Python SDK has them)
 - [ ] Whole-agent export and import
 
 ## Status and limits
@@ -173,6 +182,8 @@ today's agent infrastructure:
 - **Bearer tokens only** for now. Put TLS in front for anything beyond localhost.
 - **Trust labels reduce prompt-injection risk; they don't eliminate it.** See the
   [trust docs](docs/trust-and-provenance.md#limits).
+- **Vector search needs an embedding model you choose.** None is bundled or downloaded. See
+  [vector search](docs/vector-search.md).
 
 ## Contributing
 

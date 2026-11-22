@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-labelledby="t d">
+  <title id="t">Agent Cloud</title>
+  <desc id="d">Agent Cloud: self-hosted, open-source cloud workspaces for AI agents.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0A0F1F"/>
+      <stop offset="1" stop-color="#121A36"/>
+    </linearGradient>
+    <radialGradient id="glowA" cx="0.82" cy="0.45" r="0.42">
+      <stop offset="0" stop-color="#5B6CFF" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#5B6CFF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowB" cx="0.08" cy="0.95" r="0.5">
+      <stop offset="0" stop-color="#22D3B6" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#22D3B6" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="word" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#C9D2FF"/>
+    </linearGradient>
+    <linearGradient id="cloud" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7C8CFF"/>
+      <stop offset="1" stop-color="#4C5FE8"/>
+    </linearGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#FFFFFF" stroke-opacity="0.035" stroke-width="1"/>
+    </pattern>
+  </defs>
+
+  <rect width="1280" height="640" fill="url(#bg)"/>
+  <rect width="1280" height="640" fill="url(#grid)"/>
+  <rect width="1280" height="640" fill="url(#glowA)"/>
+  <rect width="1280" height="640" fill="url(#glowB)"/>
+
+  <g transform="translate(0 120)">
+  <!-- agents connected to a cloud workspace -->
+  <g stroke="#8E9BFF" stroke-opacity="0.45" stroke-width="1.5" fill="none">
+    <path d="M1048 200 L 880 96"/>
+    <path d="M1048 200 L 860 214"/>
+    <path d="M1048 200 L 896 318"/>
+    <path d="M1048 200 L 1206 92"/>
+    <path d="M1048 200 L 1222 300"/>
+    <path d="M880 96 L 860 214" stroke-opacity="0.18"/>
+    <path d="M860 214 L 896 318" stroke-opacity="0.18"/>
+  </g>
+  <g fill="#0E1530" stroke="#A7B2FF" stroke-width="2">
+    <circle cx="880" cy="96" r="13"/>
+    <circle cx="860" cy="214" r="13"/>
+    <circle cx="896" cy="318" r="13"/>
+    <circle cx="1206" cy="92" r="13"/>
+    <circle cx="1222" cy="300" r="13"/>
+  </g>
+  <g fill="#22D3B6">
+    <circle cx="880" cy="96" r="4.5"/>
+    <circle cx="860" cy="214" r="4.5"/>
+    <circle cx="896" cy="318" r="4.5"/>
+    <circle cx="1206" cy="92" r="4.5"/>
+    <circle cx="1222" cy="300" r="4.5"/>
+  </g>
+  <!-- cloud -->
+  <g transform="translate(1048 200)">
+    <path d="M-78 34 H72 A40 40 0 0 0 66 -45 A56 56 0 0 0 -38 -52 A44 44 0 0 0 -78 34 Z"
+          fill="url(#cloud)" stroke="#C3CBFF" stroke-opacity="0.6" stroke-width="2"/>
+    <!-- stacked versions inside the cloud -->
+    <g fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" opacity="0.92">
+      <path d="M-30 -10 H30"/>
+      <path d="M-30 6 H30" opacity="0.7"/>
+      <path d="M-30 22 H14" opacity="0.5"/>
+    </g>
+  </g>
+
+  <!-- wordmark -->
+  <g font-family="Inter, 'SF Pro Display', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif">
+    <text x="80" y="188" font-size="96" font-weight="700" letter-spacing="-2.5" fill="url(#word)">Agent Cloud</text>
+    <text x="84" y="240" font-size="28" font-weight="400" fill="#AEB8D6">Self-hosted cloud workspaces for AI agents</text>
+    <g font-size="17" font-weight="500" fill="#C9D2FF">
+      <rect x="82" y="276" rx="15" width="118" height="30" fill="#FFFFFF" fill-opacity="0.06" stroke="#FFFFFF" stroke-opacity="0.12"/>
+      <text x="141" y="296" text-anchor="middle">MCP-native</text>
+      <rect x="210" y="276" rx="15" width="112" height="30" fill="#FFFFFF" fill-opacity="0.06" stroke="#FFFFFF" stroke-opacity="0.12"/>
+      <text x="266" y="296" text-anchor="middle">Versioned</text>
+      <rect x="332" y="276" rx="15" width="148" height="30" fill="#FFFFFF" fill-opacity="0.06" stroke="#FFFFFF" stroke-opacity="0.12"/>
+      <text x="406" y="296" text-anchor="middle">Permissioned</text>
+      <rect x="490" y="276" rx="15" width="132" height="30" fill="#FFFFFF" fill-opacity="0.06" stroke="#FFFFFF" stroke-opacity="0.12"/>
+      <text x="556" y="296" text-anchor="middle">Open source</text>
+    </g>
+  </g>
+  </g>
+</svg>

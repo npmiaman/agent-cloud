@@ -48,7 +48,8 @@ delete rights, no `cloud_delegate` without share rights.
 | `cloud_write` | One file or a batch (`files`, each with optional `if_version`). `atomic=true` commits all or none. `sources` marks content from outside material. `fence` passes a lease token. |
 | `cloud_edit` | Exact-text replacements, all or nothing; much cheaper than rewriting a file |
 | `cloud_append` | Append to a file (creates it); retries once on a concurrent write |
-| `cloud_search` | BM25-ranked name and content search across workspaces; each hit says which `lines` matched |
+| `cloud_search` | Search across workspaces. `mode`: `keyword` (BM25 with proximity, exact top-k), `semantic` (vectors, if an [embedder](vector-search.md) is configured), `hybrid` (both, fused with RRF) or `auto`. Each hit says which `lines` matched. |
+| `cloud_overview` | Per-folder file counts, bytes and last change, a few levels deep: start here in a large workspace |
 | `cloud_mkdir` | Create a folder |
 | `cloud_history` / `cloud_diff` / `cloud_restore` | Version history, unified diffs (with CSV column changes), restore as a new version |
 | `cloud_changes` | What changed since the last session, or the last `hours` |
