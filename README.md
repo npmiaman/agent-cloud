@@ -61,6 +61,8 @@ together, the hard problems stop being about storage:
   labelled untrusted as it moves between agents and files, and protected paths can refuse it.
 - **What if two agents edit the same thing?** Leases with fencing tokens, compare-and-swap
   and atomic multi-file commits.
+- **Who approves all this at a million agents?** Not humans. Each agent owns its workspaces
+  and governs them within an org-wide constitution, and humans handle exceptions.
 - **What if it runs away?** Budgets, runaway detection and a kill switch that also stops
   every helper it spawned.
 
@@ -68,6 +70,11 @@ together, the hard problems stop being about storage:
 
 | | |
 |---|---|
+| **Agent-sovereign workspaces** | Each agent owns isolated workspaces and governs them itself: grants, denies, reviews other agents' changes, creates new private workspaces, all within one org-wide constitution. No human in the loop by default. [More](docs/sovereign-workspaces.md) |
+| **Workspace version control** | Merkle trees with prolly-tree folders (one change in a 20k-file folder writes 4 small nodes), sub-millisecond diffs, rollback, storage-sharing branches, histogram-diff three-way merges |
+| **Vector and hybrid search** | Pluggable embedders (local model, any OpenAI-compatible API, or a built-in fallback), encrypted vectors, HNSW (0.65 ms, recall 1.0 at 20k), Reciprocal Rank Fusion with keyword search. No model bundled or downloaded. [More](docs/vector-search.md) |
+| **Storage that doesn't balloon** | FastCDC content-defined chunking with chunk-level dedup: 100 appends to a 2.2 MB log store 2 MB, not 220 MB |
+| **Built for millions of files** | Persistent encrypted-term search index (0.12 ms rare-term search at 20k files), folder overviews, and a local replica for 3.6 µs reads and 43 µs local search |
 | **Per-agent identity** | Hashed, scoped, expiring credentials with rotation and grace periods; 15-minute access tokens; immediate revocation |
 | **Least privilege** | Workspace roles, path grants, deny rules and credential scopes. Agents can re-share or delegate only a subset of what they have. |
 | **Versioned files** | Immutable versions, soft deletes, restore-as-new-version, diffs (including CSV column changes), stable file IDs across moves |
@@ -121,6 +128,7 @@ What made the difference:
 agentcloud up [--port 8787] [--workers auto] [--data ~/.agentcloud]
 agentcloud agent create NAME [--storage 2GB] [--access read_only|read_write|full] [--approval none|overwrite|all]
 agentcloud agent list | kill NAME | budget NAME [--writes N] [--bytes 50MB] [--proposals N]
+agentcloud policy [KEY=VALUE ...]              # the constitution agents govern within
 agentcloud approvals [approve|reject ID]
 agentcloud webhook add URL --events approval.*,agent.runaway
 agentcloud backup [--to DIR] · agentcloud restore DIR [--force]
@@ -133,6 +141,8 @@ agentcloud login-link · agentcloud status · agentcloud worker [--once]
 |---|---|
 | [Getting started](docs/getting-started.md) | Install, run, connect an agent |
 | [Agent interface](docs/agent-interface.md) | MCP tools, protocol versions, sessions, error codes |
+| [Vector search](docs/vector-search.md) | Embedders, hybrid ranking, HNSW, configuration |
+| [Agent-sovereign workspaces](docs/sovereign-workspaces.md) | Ownership, the constitution, agent review, version control |
 | [Trust and provenance](docs/trust-and-provenance.md) | Prompt-injection containment |
 | [Multi-agent work](docs/multi-agent.md) | Leases, atomic commits, delegation, budgets, kill switch |
 | [Claude memory tool](docs/memory-tool.md) | Agent Cloud as a `memory_20250818` backend |
@@ -145,7 +155,8 @@ agentcloud login-link · agentcloud status · agentcloud worker [--once]
 Ordered by the [research survey](docs/research/agent-infrastructure-gaps.md) of gaps in
 today's agent infrastructure:
 
-- [ ] Task branches with review and merge
+- [x] Agent-owned workspaces, agent review, branches and merges (v0.6)
+- [x] Persistent search index, folder overviews, tree-structured commits, line-level merges, local replica (v0.7)
 - [ ] File-change wake-ups and the MCP Tasks extension
 - [ ] `subscriptions/listen` push notifications
 - [ ] Postgres metadata and S3/R2/GCS blob backends (multi-host)
@@ -157,7 +168,7 @@ today's agent infrastructure:
 
 ## Status and limits
 
-- **v0.5, single node.** SQLite metadata and local-disk blobs, with an optional replica and backups.
+- **v0.9, single node.** SQLite metadata and local-disk blobs, with an optional replica and backups.
 - **Rate limits are per process.**
 - **Bearer tokens only** for now. Put TLS in front for anything beyond localhost.
 - **Trust labels reduce prompt-injection risk; they don't eliminate it.** See the

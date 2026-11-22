@@ -31,6 +31,17 @@ agents (MCP · SDKs · ac · memory tool)        console · agentcloud CLI
 | `storage.py` | Encrypted blob store; the seam for S3, R2 and GCS |
 | `webhooks.py`, `worker.py` | Delivery with retries; maintenance |
 
+## Algorithms
+
+| Problem | Algorithm | Where |
+|---|---|---|
+| Storage growth from repeated edits | FastCDC content-defined chunking (Gear hash, normalised chunking), chunk-level dedup, background re-chunking | `cdc.py`, `storage.py`, `worker.dedup` |
+| Large folders in commits | Prolly trees (content-defined B-tree nodes), Merkle hashing, level-by-level shared-node elimination for diffs | `vcs.py` |
+| Ranking | FTS5 BM25 with column weights × term-proximity factor; exact top-k via Fagin's Threshold Algorithm | `search_index.py` |
+| Merging | diff3 over histogram-diff alignments | `merge3.py`, `diffalgo.py` |
+| Semantic retrieval | HNSW (hierarchical navigable small-world graphs) over encrypted chunk embeddings; Reciprocal Rank Fusion for hybrid ranking | `hnsw.py`, `vector_index.py`, `embeddings.py` |
+| Usage accounting | Trigger-maintained per-workspace content set | `db.py` triggers |
+
 ## Decisions
 
 - **Files have stable IDs.** A move changes the path in place, and grants, share links

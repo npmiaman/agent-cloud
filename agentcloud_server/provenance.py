@@ -70,7 +70,19 @@ def from_meta(meta: dict | None, headers=None) -> AgentContext:
         client=_s(client),
         traceparent=_s(meta.get("traceparent") or h.get("traceparent")),
         base_url=h.get("x-agentcloud-base-url"),
+        derived_from=_inputs(h.get("x-agent-inputs")),
     )
+
+
+def _inputs(raw: str | None) -> list[tuple[str, int]]:
+    """'fil_a:3,fil_b:1' -> [("fil_a", 3), ("fil_b", 1)]: inputs a client declares, e.g. reads
+    served from a local replica that the server never saw."""
+    out = []
+    for part in (raw or "").split(",")[:200]:
+        fid, _, n = part.strip().partition(":")
+        if fid.startswith("fil_") and n.isdigit():
+            out.append((fid[:40], int(n)))
+    return out
 
 
 def _s(v, n: int = 200) -> str | None:

@@ -31,6 +31,10 @@ class Settings:
     # 32-byte key for AES-256-GCM encryption of blobs at rest, base64. Generated and
     # persisted to data_dir/master.key on first run if unset.
     master_key_b64: str | None = os.environ.get("AGENTCLOUD_MASTER_KEY")
+    # Vector search: none | hashing | sentence-transformers:<model> | http:<url>|<model> (see embeddings.py)
+    embedder: str = os.environ.get("AGENTCLOUD_EMBEDDER", "none")
+    # A local model is only ever loaded from the local cache unless this is set
+    embedder_allow_download: bool = os.environ.get("AGENTCLOUD_EMBEDDER_ALLOW_DOWNLOAD") == "1"
 
     def master_key(self) -> bytes:
         if self.master_key_b64:

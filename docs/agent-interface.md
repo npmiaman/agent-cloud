@@ -57,6 +57,8 @@ delete rights, no `cloud_delegate` without share rights.
 | `cloud_provenance` | Where a version came from and what was built from it |
 | `cloud_lease` | Claim a file or folder; returns a fencing token |
 | `cloud_delegate` | Create, list or revoke helper agents |
+| `cloud_commit` | Workspace commits: create, log, diff, rollback |
+| `cloud_permissions` / `cloud_review` / `cloud_workspace` / `cloud_branch` | For workspaces the agent owns; see [sovereign workspaces](sovereign-workspaces.md) |
 | `cloud_move` / `cloud_delete` | Move or rename (history kept); soft delete (recoverable) |
 
 Tool failures come back as tool results with `isError: true` and a structured `error`
@@ -86,3 +88,23 @@ Everything is also available over REST (OpenAPI at `/docs`). Agent-relevant endp
 `/v1/environment`, `/v1/search`, `/v1/changes`, `/v1/workspaces/{ws}/files/{path}` (GET/PUT/DELETE
 with `If-Match`), `/edit/{path}`, `/append/{path}`, upload sessions with signed URLs, and
 `/v1/memory`. REST writes accept `X-Agent-Task`, `X-Agent-Model` and `traceparent` headers.
+
+## Local replica (microsecond reads)
+
+Remote reads can't beat a network round trip. For agents that read their own work
+constantly, mirror the workspace locally:
+
+```python
+from agentcloud.replica import LocalReplica
+r = LocalReplica(workspace="wsp_…", token="aca_…", base_url="http://127.0.0.1:8787")
+r.sync()                              # full copy first, then only changes
+r.read_text("/notes/plan.md")         # 3.6 µs from local SQLite, 0.2 µs once cached
+r.search("okapi sighting")            # 43 µs, with the matching line
+r.write("/notes/plan.md", "...")      # goes to the server (versioned, audited), then updates the replica
+```
+
+- Measured at 20,000 files.
+- Reads are as fresh as the last `sync()`; an incremental sync after one change took 4.3 ms.
+- Files you lose access to are removed on the next sync.
+- Local reads are sent as declared inputs on your next write, so trust labels still propagate.
+- The replica file holds plaintext and is created with mode 0600. Protect it like the credential.

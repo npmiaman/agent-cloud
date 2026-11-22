@@ -4,6 +4,8 @@
 |---|---|
 | [Getting started](getting-started.md) | Install, run, connect your first agent in five minutes |
 | [Agent interface](agent-interface.md) | MCP tools, protocol versions, sessions, resources, REST equivalents |
+| [Vector search](vector-search.md) | Embedders, hybrid ranking with RRF, HNSW, configuration |
+| [Agent-sovereign workspaces](sovereign-workspaces.md) | Agents governing their own workspaces; version control |
 | [Trust and provenance](trust-and-provenance.md) | Provenance records, trust labels, prompt-injection containment, quarantine |
 | [Multi-agent work](multi-agent.md) | Leases, atomic commits, delegation, budgets, kill switch |
 | [Claude memory tool](memory-tool.md) | Using Agent Cloud as the backend for `memory_20250818` |

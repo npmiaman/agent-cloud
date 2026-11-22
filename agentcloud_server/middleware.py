@@ -85,7 +85,7 @@ class ApiStandards:
         token = request_id_var.set(rid)
         # REST callers can label their writes for provenance: X-Agent-Task, X-Agent-Model, traceparent
         hdr = {k.decode().lower(): v.decode("latin-1") for k, v in scope.get("headers", [])
-               if k.lower() in (b"x-agent-task", b"x-agent-model", b"traceparent", b"user-agent")}
+               if k.lower() in (b"x-agent-task", b"x-agent-model", b"traceparent", b"user-agent", b"x-agent-inputs")}
         actx = P.agent_ctx.set(P.from_meta(None, hdr))
         path: str = scope["path"]
         method: bytes = scope["method"].encode()

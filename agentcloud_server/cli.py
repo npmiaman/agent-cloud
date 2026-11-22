@@ -216,6 +216,23 @@ def cmd_agent_budget(a):
     print(f"  {out['name']}  budget: {out.get('budget') or 'none'}  used: {out.get('usage')}")
 
 
+def cmd_policy(a):
+    c = _admin_client(_settings(a.data))
+    if a.set:
+        changes = {}
+        for kv in a.set:
+            k, _, v = kv.partition("=")
+            try:
+                changes[k] = json.loads(v)
+            except ValueError:
+                changes[k] = v
+        out = _call(c, "PATCH", "/v1/organisation/agent-policy", json=changes)
+    else:
+        out = _call(c, "GET", "/v1/organisation/agent-policy")
+    for k, v in out.items():
+        print(f"  {k:<26} {json.dumps(v)}")
+
+
 def cmd_approvals(a):
     s = _settings(a.data)
     c = _admin_client(s)
@@ -320,7 +337,8 @@ def main(argv: list[str] | None = None):
     ag.add_parser = lambda *x, **k: _agadd(*x, parents=[common], **k)
     p = ag.add_parser("create", help="agent + workspace + credential, with connection snippets")
     p.add_argument("name"); p.add_argument("--storage", help="e.g. 500MB, 2GB")
-    p.add_argument("--access", default="read_write", choices=["read_only", "read_write", "full"])
+    p.add_argument("--access", default="owner", choices=["owner", "full", "read_write", "read_only"],
+                   help="owner (default): the agent governs its own workspace within the org policy")
     p.add_argument("--approval", default="none", choices=["none", "overwrite", "all"])
     p.add_argument("--client", default="all", choices=["all", "claude", "cursor", "env"]); p.add_argument("--json", action="store_true")
     p.set_defaults(fn=cmd_agent_create)
@@ -331,6 +349,9 @@ def main(argv: list[str] | None = None):
     p.add_argument("name"); p.add_argument("--writes", type=int); p.add_argument("--bytes", help="e.g. 50MB")
     p.add_argument("--proposals", type=int); p.add_argument("--clear", action="store_true"); p.add_argument("--reset", action="store_true")
     p.set_defaults(fn=cmd_agent_budget)
+    p = sub.add_parser("policy", help="show or set the constitution agents govern their workspaces within")
+    p.add_argument("set", nargs="*", metavar="KEY=VALUE", help='e.g. max_grant_hours=48 grantable=\'["read"]\' agents_govern=false')
+    p.set_defaults(fn=cmd_policy)
     p = sub.add_parser("approvals", help="review pending agent changes")
     p.add_argument("action", nargs="?", default="list", choices=["list", "approve", "reject"]); p.add_argument("id", nargs="?")
     p.add_argument("--note"); p.add_argument("--force", action="store_true"); p.set_defaults(fn=cmd_approvals)

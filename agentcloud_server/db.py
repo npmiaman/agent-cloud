@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS organisations (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   plan TEXT NOT NULL DEFAULT 'free',
+  agent_policy TEXT,              -- JSON constitution agents govern within (see governance.py); NULL = defaults
   created_at REAL NOT NULL
 );
 
@@ -322,6 +323,94 @@ CREATE TABLE IF NOT EXISTS leases (
 );
 CREATE INDEX IF NOT EXISTS leases_ws ON leases(workspace_id, released_at, expires_at);
 
+-- Version control. Every mutation in a workspace takes the next value of workspaces.seq.
+-- A commit is just a named seq: the snapshot at seq S is, for each file, its latest version
+-- with seq <= S at its path as of S. Commits are O(1) and share all storage.
+CREATE TABLE IF NOT EXISTS file_paths (
+  file_id TEXT NOT NULL,
+  seq INTEGER NOT NULL,
+  path TEXT NOT NULL,
+  PRIMARY KEY (file_id, seq)
+);
+CREATE TABLE IF NOT EXISTS commits (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  seq INTEGER NOT NULL,
+  message TEXT NOT NULL DEFAULT '',
+  actor TEXT NOT NULL,
+  created_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS commits_ws ON commits(workspace_id, seq);
+
+-- Content-addressed folder trees for commits (a Merkle tree): unchanged folders are shared
+-- between commits and skipped by diffs.
+CREATE TABLE IF NOT EXISTS trees (
+  hash TEXT PRIMARY KEY,
+  entries TEXT NOT NULL            -- JSON: ["f", name, file_id, version, sha256, size, content_type] | ["d", name, tree_hash]
+);
+
+-- Which file each mutation touched (by workspace seq), maintained by triggers. Drives
+-- incremental commits, sync feeds for local replicas, and the search index queue.
+CREATE TABLE IF NOT EXISTS changes (
+  workspace_id TEXT NOT NULL,
+  seq INTEGER NOT NULL,
+  file_id TEXT NOT NULL,
+  PRIMARY KEY (workspace_id, seq, file_id)
+);
+
+-- Persistent search index. Terms are stored as keyed hashes, never plaintext, so file
+-- contents stay encrypted at rest; snippets are cut from the decrypted top hits only.
+CREATE TABLE IF NOT EXISTS search_files (
+  file_id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL,
+  version INTEGER NOT NULL,
+  path TEXT NOT NULL,
+  rows TEXT NOT NULL DEFAULT '[]'   -- rowids of this file's chunks in search_chunks
+);
+CREATE INDEX IF NOT EXISTS search_files_ws ON search_files(workspace_id);
+CREATE TABLE IF NOT EXISTS search_queue (
+  file_id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS search_queue_ws ON search_queue(workspace_id);
+
+-- Vector search. Chunk embeddings are AES-GCM encrypted (embeddings can be inverted back
+-- into text). vector_log lets every process apply index changes incrementally.
+CREATE TABLE IF NOT EXISTS vector_chunks (
+  id INTEGER PRIMARY KEY,
+  file_id TEXT NOT NULL,
+  workspace_id TEXT NOT NULL,
+  version INTEGER NOT NULL,
+  start_line INTEGER NOT NULL,
+  end_line INTEGER NOT NULL,
+  model TEXT NOT NULL,
+  vec BLOB NOT NULL
+);
+CREATE INDEX IF NOT EXISTS vector_chunks_file ON vector_chunks(file_id);
+CREATE INDEX IF NOT EXISTS vector_chunks_ws ON vector_chunks(workspace_id, model);
+CREATE TABLE IF NOT EXISTS vector_queue (
+  file_id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS vector_queue_ws ON vector_queue(workspace_id);
+CREATE TABLE IF NOT EXISTS vector_log (
+  seq INTEGER PRIMARY KEY AUTOINCREMENT,
+  workspace_id TEXT NOT NULL,
+  op TEXT NOT NULL CHECK (op IN ('add','remove')),
+  chunk_id INTEGER NOT NULL,
+  model TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS vector_log_ws ON vector_log(workspace_id, seq);
+
+-- Distinct content per workspace, maintained by triggers (see Database.TRIGGERS), so quota and
+-- dedup checks are one indexed lookup instead of a scan over every version.
+CREATE TABLE IF NOT EXISTS workspace_blobs (
+  workspace_id TEXT NOT NULL,
+  sha256 TEXT NOT NULL,
+  size INTEGER NOT NULL,
+  PRIMARY KEY (workspace_id, sha256)
+);
+
 -- One-time dashboard login links (printed by `agentcloud up` / `agentcloud login-link`).
 CREATE TABLE IF NOT EXISTS magic_links (
   code_hash TEXT PRIMARY KEY,
@@ -458,13 +547,87 @@ class Database:
                      ("agents", "ingests_untrusted", "INTEGER NOT NULL DEFAULT 0"),
                      ("agents", "last_active_at", "REAL"),
                      ("workspaces", "trust_policy", "TEXT"),
-                     ("proposals", "provenance", "TEXT")]
+                     ("proposals", "provenance", "TEXT"),
+                     ("organisations", "agent_policy", "TEXT"),
+                     ("workspaces", "seq", "INTEGER NOT NULL DEFAULT 0"),
+                     ("workspaces", "forked_from", "TEXT"),     # branch: the workspace it was forked from
+                     ("workspaces", "fork_seq", "INTEGER"),      # ... and the parent's seq at fork time (merge base)
+                     ("workspaces", "merged_at", "REAL"),
+                     ("versions", "seq", "INTEGER"),
+                     ("workspaces", "used_bytes", "INTEGER NOT NULL DEFAULT 0"),
+                     ("commits", "tree", "TEXT"),
+                     ("blobs", "chunked", "INTEGER NOT NULL DEFAULT 0")]   # 1 = considered by background dedup
+
+    TRIGGERS = """
+    CREATE TRIGGER IF NOT EXISTS versions_track_blob AFTER INSERT ON versions WHEN NEW.blob_sha256 IS NOT NULL
+    BEGIN
+      INSERT OR IGNORE INTO workspace_blobs(workspace_id, sha256, size)
+        SELECT f.workspace_id, NEW.blob_sha256, NEW.size FROM files f WHERE f.id = NEW.file_id;
+    END;
+    CREATE TRIGGER IF NOT EXISTS versions_untrack_blob AFTER DELETE ON versions WHEN OLD.blob_sha256 IS NOT NULL
+    BEGIN
+      DELETE FROM workspace_blobs WHERE sha256 = OLD.blob_sha256
+        AND workspace_id = (SELECT workspace_id FROM files WHERE id = OLD.file_id)
+        AND NOT EXISTS (SELECT 1 FROM versions v JOIN files f ON f.id = v.file_id
+                        WHERE v.blob_sha256 = OLD.blob_sha256 AND f.workspace_id = workspace_blobs.workspace_id);
+    END;
+    CREATE TRIGGER IF NOT EXISTS versions_log_change AFTER INSERT ON versions WHEN NEW.seq IS NOT NULL
+    BEGIN
+      INSERT OR IGNORE INTO changes(workspace_id, seq, file_id)
+        SELECT f.workspace_id, NEW.seq, NEW.file_id FROM files f WHERE f.id = NEW.file_id;
+      INSERT OR REPLACE INTO search_queue(file_id, workspace_id)
+        SELECT NEW.file_id, f.workspace_id FROM files f WHERE f.id = NEW.file_id;
+      INSERT OR REPLACE INTO vector_queue(file_id, workspace_id)
+        SELECT NEW.file_id, f.workspace_id FROM files f WHERE f.id = NEW.file_id;
+    END;
+    CREATE TRIGGER IF NOT EXISTS file_paths_log_change AFTER INSERT ON file_paths WHEN NEW.seq > 0
+    BEGIN
+      INSERT OR IGNORE INTO changes(workspace_id, seq, file_id)
+        SELECT f.workspace_id, NEW.seq, NEW.file_id FROM files f WHERE f.id = NEW.file_id;
+      INSERT OR REPLACE INTO search_queue(file_id, workspace_id)
+        SELECT NEW.file_id, f.workspace_id FROM files f WHERE f.id = NEW.file_id;
+      INSERT OR REPLACE INTO vector_queue(file_id, workspace_id)
+        SELECT NEW.file_id, f.workspace_id FROM files f WHERE f.id = NEW.file_id;
+    END;
+    CREATE TRIGGER IF NOT EXISTS workspace_blobs_add AFTER INSERT ON workspace_blobs
+    BEGIN
+      UPDATE workspaces SET used_bytes = used_bytes + NEW.size WHERE id = NEW.workspace_id;
+    END;
+    CREATE TRIGGER IF NOT EXISTS workspace_blobs_remove AFTER DELETE ON workspace_blobs
+    BEGIN
+      UPDATE workspaces SET used_bytes = used_bytes - OLD.size WHERE id = OLD.workspace_id;
+    END;
+    """
 
     def _add_columns(self, c: sqlite3.Connection):
         """Additive, idempotent column migrations for existing databases."""
+        backfill_usage = "used_bytes" not in self._cols(c, "workspaces")
         for table, col, decl in self.ADDED_COLUMNS:
             if col not in self._cols(c, table):
                 c.execute(f"ALTER TABLE {table} ADD COLUMN {col} {decl}")
+        c.execute("CREATE INDEX IF NOT EXISTS versions_seq ON versions(file_id, seq)")
+        c.execute("CREATE INDEX IF NOT EXISTS versions_blob ON versions(blob_sha256)")
+        import re as _re
+        for name in _re.findall(r"CREATE TRIGGER IF NOT EXISTS (\w+)", self.TRIGGERS):
+            c.execute(f"DROP TRIGGER IF EXISTS {name}")     # always run the current definitions
+        c.executescript(self.TRIGGERS)
+        try:  # FTS5 is compiled into the SQLite builds Python ships; search falls back to scanning without it
+            cols = {r[1] for r in c.execute("PRAGMA table_info(search_chunks)")}
+            if cols and "scope" not in cols:     # index from v0.7: rebuild with the scope column
+                c.execute("DROP TABLE search_chunks")
+                c.execute("DELETE FROM search_files")
+            c.execute("""CREATE VIRTUAL TABLE IF NOT EXISTS search_chunks USING fts5(
+                           terms, path_terms, scope, file_id UNINDEXED, workspace_id UNINDEXED,
+                           start_line UNINDEXED, end_line UNINDEXED, tokenize='ascii')""")
+            self.fts = True
+        except sqlite3.OperationalError:
+            self.fts = False
+        if backfill_usage:  # one-time, for databases created before the counter existed
+            c.execute("DELETE FROM workspace_blobs")
+            c.execute("""INSERT OR IGNORE INTO workspace_blobs(workspace_id, sha256, size)
+                         SELECT DISTINCT f.workspace_id, v.blob_sha256, v.size FROM versions v JOIN files f ON f.id=v.file_id
+                         WHERE v.blob_sha256 IS NOT NULL""")
+            c.execute("UPDATE workspaces SET used_bytes = COALESCE((SELECT SUM(size) FROM workspace_blobs b WHERE b.workspace_id = workspaces.id), 0)")
 
     def _drop_stale_owner_fks(self, c: sqlite3.Connection):
         """v1 declared workspaces/agents.owner_id REFERENCES users(id). In v2 owner_id is an

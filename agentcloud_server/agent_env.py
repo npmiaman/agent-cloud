@@ -258,6 +258,44 @@ def _snippet(text: str, terms: list[str], width: int = 160) -> str:
 
 
 CHUNK_LINES = 40
+RRF_K = 60
+
+
+def search_mode(ctx: Ctx, p: Principal, query: str, workspaces: list[dict], prefix: str = "", limit: int = 20,
+                mode: str = "auto") -> tuple[list[dict], str, int]:
+    """(results, mode used, files waiting to be embedded). Hybrid fuses the keyword and vector
+    rankings with Reciprocal Rank Fusion: score = sum over lists of 1 / (RRF_K + rank)."""
+    from . import vector_index as VI
+    if mode == "auto":
+        mode = "hybrid" if VI.available(ctx) else "keyword"
+    if mode in ("semantic", "hybrid") and not VI.available(ctx):
+        raise ApiError(400, "SEMANTIC_NOT_CONFIGURED",
+                       "semantic search is not configured on this server (set AGENTCLOUD_EMBEDDER); use mode=keyword")
+    if mode == "keyword":
+        return search(ctx, p, query, workspaces, prefix, limit), mode, 0
+    if mode == "semantic":
+        res, pending = VI.search(ctx, p, query, workspaces, prefix, limit)
+        return res, mode, pending
+    kw = search(ctx, p, query, workspaces, prefix, limit * 2)
+    sem, pending = VI.search(ctx, p, query, workspaces, prefix, limit * 2)
+    fused: dict[tuple, dict] = {}
+    for source, lst in (("keyword", kw), ("semantic", sem)):
+        for rank, hit in enumerate(lst, 1):
+            key = (hit["workspace_id"], hit["path"])
+            ent = fused.setdefault(key, {"hit": dict(hit), "rrf": 0.0, "sources": []})
+            ent["rrf"] += 1.0 / (RRF_K + rank)
+            ent["sources"].append(source)
+            if source == "keyword":                 # keyword hits carry the exact matching lines
+                ent["hit"].update({k: hit[k] for k in ("lines", "snippet") if hit.get(k)})
+    ranked = sorted(fused.values(), key=lambda e: -e["rrf"])[:limit]
+    top = ranked[0]["rrf"] if ranked else 1.0
+    out = []
+    for e in ranked:
+        h = e["hit"]
+        h["score"] = round(e["rrf"] / top, 6)
+        h["matched_in"] = "+".join(e["sources"])
+        out.append(h)
+    return out, mode, pending
 
 
 def search(ctx: Ctx, p: Principal, query: str, workspaces: list[dict], prefix: str = "", limit: int = 20) -> list[dict]:
@@ -267,7 +305,13 @@ def search(ctx: Ctx, p: Principal, query: str, workspaces: list[dict], prefix: s
     score is its best chunk plus a bonus for terms in its path. A result must cover at least
     60% of the query's distinct terms. Each hit says which lines matched, so an agent can
     read just that range next. Content is decrypted in memory only (cached); no plaintext
-    index is written to disk."""
+    index is written to disk.
+
+    With FTS5 available (the normal case) this is served by the persistent index in
+    search_index.py, with identical ranking. The scan below is the fallback."""
+    from . import search_index
+    if search_index.available(ctx.db):
+        return search_index.search(ctx, p, query, workspaces, prefix, limit)
     import math
     terms = list(dict.fromkeys(_terms(query)))
     if not terms:

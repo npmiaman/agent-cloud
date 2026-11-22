@@ -60,6 +60,15 @@ def create_backup(data_dir: Path, dest_root: Path, include_key: bool = True) -> 
                 continue
             modes[_link_or_copy(s, tmp / "blobs" / org / sha[:2] / sha)] += 1
             size += s.stat().st_size
+        # chunks of re-chunked files (dedup): link every chunk of each organisation in the backup.
+        # Immutable and content-addressed, so a superset is safe and needs no key to compute.
+        for org in {o for o, _ in refs}:
+            src_chunks = data_dir / "blobs" / org / "chunks"
+            if src_chunks.exists():
+                for c in src_chunks.glob("*/*"):
+                    if c.is_file():
+                        modes[_link_or_copy(c, tmp / "blobs" / org / "chunks" / c.parent.name / c.name)] += 1
+                        size += c.stat().st_size
         if include_key and (data_dir / "master.key").exists():
             shutil.copy2(data_dir / "master.key", tmp / "master.key")
             os.chmod(tmp / "master.key", 0o600)

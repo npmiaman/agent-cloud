@@ -27,6 +27,9 @@
 | `AGENTCLOUD_BACKUP_KEEP` | 7 | Backups to keep |
 | `AGENTCLOUD_INLINE_WORKER` | 1 | Run maintenance inside the server; set 0 and run `agentcloud worker` separately |
 | `AGENTCLOUD_ADMIN_KEY` | from `admin.json` | Admin key the `agentcloud` CLI uses |
+| `AGENTCLOUD_EMBEDDER` | `none` | Vector search: `hashing`, `sentence-transformers:<model>` or `http:<url>\|<model>` ([docs](vector-search.md)) |
+| `AGENTCLOUD_EMBEDDER_ALLOW_DOWNLOAD` | `0` | Let a local model download its weights |
+| `AGENTCLOUD_EMBEDDER_API_KEY` | unset | Bearer key for an `http:` embedder |
 
 ## Backups and recovery
 

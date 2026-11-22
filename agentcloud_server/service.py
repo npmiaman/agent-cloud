@@ -54,6 +54,7 @@ def guess_type(path: str, given: str | None) -> str:
 class Ctx:
     db: Database
     blobs: LocalEncryptedBlobStore
+    embedder: object = None          # embeddings.Embedder when vector search is configured
 
 
 # Audit event names (spec §17.4) for internal action names.
@@ -76,6 +77,8 @@ EVENT_NAMES = {
     "runaway": "agent.runaway", "kill_agent": "agent.killed", "delegate": "agent.delegated",
     "lease": "lease.acquired", "release_lease": "lease.released", "quarantine": "trust.quarantined",
     "endorse": "trust.endorsed", "set_trust_policy": "workspace.trust_policy_changed",
+    "commit": "workspace.committed", "rollback": "workspace.rolled_back", "branch": "workspace.branched",
+    "merge": "workspace.merged", "set_agent_policy": "organisation.agent_policy_changed",
 }
 
 
@@ -176,10 +179,13 @@ def usage_bytes(db: Database, ws_id: str, fresh: bool = True) -> int:
 
 
 def _usage_bytes(db: Database, ws_id: str) -> int:
+    # workspaces.used_bytes = distinct committed content, kept current by triggers; plus pending
+    # proposals' content that isn't already stored in the workspace.
     row = db.one(
-        """SELECT COALESCE(SUM(size),0) AS s FROM (SELECT DISTINCT v.blob_sha256, v.size FROM versions v
-           JOIN files f ON f.id = v.file_id WHERE f.workspace_id = ? AND v.blob_sha256 IS NOT NULL
-           UNION SELECT DISTINCT blob_sha256, size FROM proposals WHERE workspace_id = ? AND status='pending' AND blob_sha256 IS NOT NULL)""",
+        """SELECT (SELECT used_bytes FROM workspaces WHERE id = ?) +
+                  COALESCE((SELECT SUM(size) FROM (SELECT DISTINCT p.blob_sha256, p.size FROM proposals p
+                   WHERE p.workspace_id = ? AND p.status='pending' AND p.blob_sha256 IS NOT NULL
+                   AND NOT EXISTS (SELECT 1 FROM workspace_blobs b WHERE b.workspace_id = p.workspace_id AND b.sha256 = p.blob_sha256))), 0) AS s""",
         ws_id, ws_id,
     )
     reserved = db.one("""SELECT COALESCE(SUM(declared_size),0) AS s FROM uploads WHERE workspace_id=?
@@ -189,7 +195,7 @@ def _usage_bytes(db: Database, ws_id: str) -> int:
 
 def blob_in_workspace(db: Database, ws_id: str, sha: str) -> bool:
     return bool(db.one(
-        """SELECT 1 FROM versions v JOIN files f ON f.id=v.file_id WHERE f.workspace_id=? AND v.blob_sha256=?
+        """SELECT 1 FROM workspace_blobs WHERE workspace_id=? AND sha256=?
            UNION SELECT 1 FROM proposals WHERE workspace_id=? AND blob_sha256=? AND status='pending' LIMIT 1""",
         ws_id, sha, ws_id, sha,
     ))
@@ -410,11 +416,13 @@ def _apply_version(db: Database, ws: dict, path: str, *, sha: str | None, size: 
     """Append a version (caller holds the transaction). Writing to a path whose file was
     deleted revives that file, so its history continues."""
     t = now()
+    seq = next_seq(db, ws["id"])
     f = file_row(db, ws["id"], path)
     if f is None:
         fid = new_id("fil")
         db.exec("""INSERT INTO files(id, workspace_id, path, kind, current_version, created_by, created_at, updated_at)
                    VALUES (?,?,?,?,0,?,?,?)""", fid, ws["id"], path, "file", actor, t, t)
+        db.exec("INSERT INTO file_paths(file_id, seq, path) VALUES (?,?,?)", fid, seq, path)
         n = 1
     else:
         fid = f["id"]
@@ -424,9 +432,9 @@ def _apply_version(db: Database, ws: dict, path: str, *, sha: str | None, size: 
     if sha is not None:
         _ensure_parent_folders(db, ws, path, actor)
     vid = new_id("ver")
-    db.exec("""INSERT INTO versions(id, file_id, n, blob_sha256, size, content_type, op, actor, message, proposal_id, created_at)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
-            vid, fid, n, sha, size, ctype, op, actor, message, proposal_id, t)
+    db.exec("""INSERT INTO versions(id, file_id, n, blob_sha256, size, content_type, op, actor, message, proposal_id, created_at, seq)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+            vid, fid, n, sha, size, ctype, op, actor, message, proposal_id, t, seq)
     pr = P.record(db, version_id=vid, file_id=fid, n=n, owner_id=ws["owner_id"], sha=sha, prov=prov, actor=actor,
                   inherit=op in ("copy", "restore", "move") or prov is None)
     db.exec("UPDATE files SET current_version=?, updated_at=?, deleted_at=? WHERE id=?",
@@ -436,6 +444,11 @@ def _apply_version(db: Database, ws: dict, path: str, *, sha: str | None, size: 
     invalidate_usage(db, ws["id"])
     return {"id": fid, "path": path, "version": n, "op": op, "size": size, "sha256": sha, "content_type": ctype,
             "trust": pr["trust"]}
+
+
+def next_seq(db: Database, ws_id: str) -> int:
+    """The workspace's next mutation number (caller holds the transaction)."""
+    return db.one("UPDATE workspaces SET seq=seq+1 WHERE id=? RETURNING seq", ws_id)["seq"]
 
 
 def _needs_approval(policy: str, exists: bool) -> bool:
@@ -715,6 +728,10 @@ def move(ctx: Ctx, p: Principal, ws: dict, src_raw: str, dst_raw: str, message: 
         results = []
         for f, new_path in pairs:
             ctx.db.exec("UPDATE files SET path=?, updated_at=? WHERE id=?", new_path, t, f["id"])
+            if f["kind"] == "file":
+                if not ctx.db.one("SELECT 1 FROM file_paths WHERE file_id=?", f["id"]):   # created before path history
+                    ctx.db.exec("INSERT INTO file_paths(file_id, seq, path) VALUES (?,0,?)", f["id"], f["path"])
+                ctx.db.exec("INSERT INTO file_paths(file_id, seq, path) VALUES (?,?,?)", f["id"], next_seq(ctx.db, ws["id"]), new_path)
             results.append({"id": f["id"], "from": f["path"], "to": new_path, "version": f["current_version"]})
         _ensure_parent_folders(ctx.db, ws, dst, p.actor)
         _repoint(ctx.db, ws["id"], src, dst)
@@ -773,9 +790,9 @@ def restore(ctx: Ctx, p: Principal, ws: dict, raw_path: str, version: int, messa
         n = f["current_version"] + 1
         t = now()
         vid = new_id("ver")
-        ctx.db.exec("""INSERT INTO versions(id, file_id, n, blob_sha256, size, content_type, op, actor, message, created_at)
-                       VALUES (?,?,?,?,?,?,?,?,?,?)""", vid, f["id"], n, v["blob_sha256"], v["size"], v["content_type"],
-                    "restore", p.actor, message or f"restored version {version}", t)
+        ctx.db.exec("""INSERT INTO versions(id, file_id, n, blob_sha256, size, content_type, op, actor, message, created_at, seq)
+                       VALUES (?,?,?,?,?,?,?,?,?,?,?)""", vid, f["id"], n, v["blob_sha256"], v["size"], v["content_type"],
+                    "restore", p.actor, message or f"restored version {version}", t, next_seq(ctx.db, ws["id"]))
         old = ctx.db.one("SELECT trust, reasons FROM provenance WHERE version_id=?", v["id"])
         P.record(ctx.db, version_id=vid, file_id=f["id"], n=n, owner_id=ws["owner_id"], sha=v["blob_sha256"],
                  prov={"actor": p.actor, "credential_id": p.token_id, "inputs": [(f["id"], version)], "sources": [],
@@ -791,12 +808,21 @@ def restore(ctx: Ctx, p: Principal, ws: dict, raw_path: str, version: int, messa
 # ---------------------------------------------------------------- approvals
 
 def decide_proposal(ctx: Ctx, p: Principal, proposal_id: str, approve: bool, note: str = "", force: bool = False) -> dict:
-    if not p.is_user:
-        raise forbidden("only a human user can approve or reject changes")
+    from . import governance as G
     with ctx.db.tx():
         pr = ctx.db.one("SELECT * FROM proposals WHERE id=?", proposal_id)
         if not pr:
             raise not_found("proposal not found", "APPROVAL_NOT_FOUND")
+        if not p.is_user:
+            wsr = ctx.db.one("SELECT * FROM workspaces WHERE id=? AND deleted_at IS NULL", pr["workspace_id"])
+            if not wsr or not G.is_owner(ctx.db, p, wsr):
+                if wsr and rights_for(ctx.db, p, dict(wsr), pr["path"]).read:
+                    raise forbidden("only this workspace's owner (or a human) can review its changes")
+                raise not_found("proposal not found", "APPROVAL_NOT_FOUND")
+            if not G.policy(ctx.db, p.owner_id)["agent_review"]:
+                raise forbidden("this organisation's policy reserves reviews for humans")
+            if pr["actor"] == p.actor:
+                raise forbidden("an agent can't approve or reject its own proposal")
         ws = get_workspace(ctx, p, pr["workspace_id"])
         if pr["status"] != "pending":
             raise ApiError(409, "ALREADY_DECIDED", f"proposal is {pr['status']}")
@@ -911,7 +937,9 @@ def proposal_detail(ctx: Ctx, p: Principal, proposal_id: str) -> dict:
         raise not_found("proposal not found", "APPROVAL_NOT_FOUND")
     ws = get_workspace(ctx, p, pr["workspace_id"])
     if not p.is_user and pr["actor"] != p.actor:
-        raise not_found("proposal not found", "APPROVAL_NOT_FOUND")
+        from . import governance as G
+        if not G.is_owner(ctx.db, p, ws):          # the owning agent reviews proposals in its workspace
+            raise not_found("proposal not found", "APPROVAL_NOT_FOUND")
     d = dict(pr)
     f = live_row(ctx.db, ws["id"], pr["path"])
     cur = live_version(f)
