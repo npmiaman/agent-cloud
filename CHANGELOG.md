@@ -22,6 +22,13 @@ breaking changes; they are called out below.
 ### Changed
 - `cdc`, `diffalgo` and `merge3` moved into `agentcloud_core`; the server re-exports them.
 
+### Fixed
+- **Security: a race could label tainted content as trusted.** The audit flusher took
+  buffered read events before opening its transaction. A write computing its provenance
+  read set in that window missed the reads. Flushes now take the write lock first.
+  Regression test in `tests/test_audit_flush_race.py`.
+- The Docker image now includes `agentcloud_core`.
+
 ## [0.9.0] - 2026-11-23
 
 Vector search, without shipping or downloading a model.

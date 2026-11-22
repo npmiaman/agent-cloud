@@ -117,11 +117,16 @@ def flush_activity(db: Database) -> int:
     """Write buffered audit events. Called by the flusher thread, before any audit query,
     and at shutdown, so readers always see a complete log."""
     buf = _buffer(db)
-    with buf["lock"]:
-        rows, buf["rows"] = buf["rows"], []
-    if rows:
-        with db.tx() as conn:
-            conn.executemany(_ACTIVITY_SQL, rows)
+    # Take the write lock before taking the rows: a concurrent caller then waits until rows
+    # another thread is flushing are committed, instead of seeing an empty buffer and missing
+    # them (which made provenance read sets miss reads and label tainted content trusted).
+    # Lock order is always write lock, then buffer lock, so this can't deadlock with tx().
+    with db.write_lock:
+        with buf["lock"]:
+            rows, buf["rows"] = buf["rows"], []
+        if rows:
+            with db.tx() as conn:
+                conn.executemany(_ACTIVITY_SQL, rows)
     return len(rows)
 
 
