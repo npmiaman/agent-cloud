@@ -1,7 +1,7 @@
 """Object store conformance: every backend must give the same answers (SPEC §2, §10).
 
 Backends: memory, local directory, S3 through moto (in-process emulator), and a real
-S3-compatible server when AGENTCLOUD_TEST_S3_ENDPOINT is set (CI runs LocalStack). Moto's request
+S3-compatible server when AGENTCLOUD_TEST_S3_ENDPOINT is set (CI runs moto in server mode). Moto's request
 mocking isn't thread-safe, so concurrent tests run against that server instead of moto.
 """
 import os
@@ -24,7 +24,7 @@ def _s3():
     return S3Store("acf-conformance", client=s3), m
 
 
-def _minio():
+def _s3_server():
     endpoint = os.environ.get("AGENTCLOUD_TEST_S3_ENDPOINT")
     if not endpoint:
         pytest.skip("set AGENTCLOUD_TEST_S3_ENDPOINT to test a real S3-compatible server")
@@ -48,7 +48,7 @@ def store(request, tmp_path):
     elif request.param == "local":
         yield LocalStore(tmp_path / "objects")
     elif request.param == "s3-server":
-        yield _minio()
+        yield _s3_server()
     else:
         s, m = _s3()
         s.emulated = True
@@ -84,7 +84,7 @@ def test_list_and_delete(store):
 
 def test_exactly_one_writer_wins_each_cas_round(store):
     if getattr(store, "emulated", False):
-        pytest.skip("moto's mocking isn't thread-safe; the s3-server backend (LocalStack in CI) covers this")
+        pytest.skip("moto's mocking isn't thread-safe; the s3-server backend (moto's HTTP server in CI) covers this")
     store.put_if_absent("counter", b"0")
     wins = []
     lock = threading.Lock()

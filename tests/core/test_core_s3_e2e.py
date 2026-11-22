@@ -22,7 +22,7 @@ def test_agents_commit_merge_and_retract_on_s3():
             tx = repo.branch(f"agents/w{i}").begin(writer=f"agent:w{i}")
             tx.write(f"out/w{i}.md", f"derived {i}".encode(), inputs=[root])
             tx.commit("derive")
-        for i in range(8):           # sequential: moto's mocking isn't thread-safe (concurrency: MinIO tests)
+        for i in range(8):           # sequential: moto's mocking isn't thread-safe (concurrency: s3-server tests)
             worker(i)
         repo.merge_many([f"agents/w{i}" for i in range(8)] + ["agents/source"], "project")
         assert len(repo.branch("project").files()) == 9
