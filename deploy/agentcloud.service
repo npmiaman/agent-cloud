@@ -1,0 +1,23 @@
+# systemd unit: copy to /etc/systemd/system/agentcloud.service, then
+#   sudo systemctl daemon-reload && sudo systemctl enable --now agentcloud
+[Unit]
+Description=Agent Cloud
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=agentcloud
+Environment=AGENTCLOUD_DATA=/var/lib/agentcloud
+# Environment=AGENTCLOUD_REPLICA_DIR=/mnt/backup-disk/agentcloud-replica
+# Environment=AGENTCLOUD_BACKUP_DIR=/mnt/backup-disk/agentcloud-backups
+# Environment=AGENTCLOUD_MASTER_KEY=<base64 32 bytes, ideally from a secret store>
+ExecStart=/usr/local/bin/agentcloud up --host 127.0.0.1 --port 8787
+Restart=always
+RestartSec=2
+TimeoutStopSec=20
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/agentcloud
+
+[Install]
+WantedBy=multi-user.target

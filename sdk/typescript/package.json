@@ -1,0 +1,22 @@
+{
+  "name": "@agentcloud/sdk",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for Agent Cloud: persistent, permissioned, versioned workspaces for AI agents.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "engines": { "node": ">=18" },
+  "sideEffects": false,
+  "scripts": {
+    "build": "npx -y -p typescript@5.6.3 tsc -p tsconfig.json",
+    "test:e2e": "node test/e2e.mjs"
+  },
+  "license": "MIT"
+}

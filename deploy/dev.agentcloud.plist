@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- macOS launchd agent: copy to ~/Library/LaunchAgents/, then
+     launchctl load ~/Library/LaunchAgents/dev.agentcloud.plist
+     Edit the agentcloud path (`which agentcloud`) first. -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>dev.agentcloud</string>
+  <key>ProgramArguments</key>
+  <array><string>/usr/local/bin/agentcloud</string><string>up</string><string>--port</string><string>8787</string></array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>/tmp/agentcloud.log</string>
+  <key>StandardErrorPath</key><string>/tmp/agentcloud.log</string>
+</dict>
+</plist>

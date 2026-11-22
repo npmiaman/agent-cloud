@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+data/
+*.egg-info/
+build/
+dist/
+.venv/
+.DS_Store
+node_modules/
+*.db
+*.db-wal
+*.db-shm
+master.key
+admin.json
+server.json
+.env
